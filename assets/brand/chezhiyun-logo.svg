@@ -1,0 +1,28 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F766E"/>
+      <stop offset="1" stop-color="#155E75"/>
+    </linearGradient>
+    <linearGradient id="car" x1="120" y1="220" x2="392" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#E2E8F0"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="32" y="32" width="448" height="448" rx="96" fill="url(#bg)"/>
+
+  <path d="M153 286C160 249 188 220 224 214H288C324 220 352 249 359 286H153Z" fill="url(#car)"/>
+  <rect x="138" y="286" width="236" height="48" rx="16" fill="url(#car)"/>
+
+  <circle cx="192" cy="342" r="24" fill="#0F172A"/>
+  <circle cx="320" cy="342" r="24" fill="#0F172A"/>
+  <circle cx="192" cy="342" r="10" fill="#94A3B8"/>
+  <circle cx="320" cy="342" r="10" fill="#94A3B8"/>
+
+  <rect x="198" y="166" width="20" height="36" rx="6" fill="#BAE6FD"/>
+  <rect x="246" y="146" width="20" height="56" rx="6" fill="#BAE6FD"/>
+  <rect x="294" y="176" width="20" height="26" rx="6" fill="#BAE6FD"/>
+
+  <path d="M171 250H341" stroke="#0EA5E9" stroke-width="8" stroke-linecap="round"/>
+</svg>

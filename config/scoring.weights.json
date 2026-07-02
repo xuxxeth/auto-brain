@@ -1,0 +1,15 @@
+{
+  "weights": {
+    "price": 40,
+    "mileage": 20,
+    "age": 15,
+    "quality": 15,
+    "liquidity": 10
+  },
+  "idealAnnualMileageKm": 15000,
+  "thresholds": {
+    "aMin": 80,
+    "bMin": 65,
+    "cMin": 50
+  }
+}
