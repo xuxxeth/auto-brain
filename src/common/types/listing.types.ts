@@ -1,6 +1,7 @@
 export interface RawListing {
   platform: string;
   model: string;
+  modelRaw?: string;
   priceWan: number;
   city: string;
   mileageKm: number;

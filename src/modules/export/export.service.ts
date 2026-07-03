@@ -34,7 +34,8 @@ export class ExportService {
     const rawSheet = workbook.addWorksheet('raw_data');
     rawSheet.columns = [
       { header: '平台', key: 'platform', width: 12 },
-      { header: '车型', key: 'model', width: 24 },
+      { header: '车型(去空格)', key: 'model', width: 24 },
+      { header: '车型(原始)', key: 'modelRaw', width: 24 },
       { header: '价格(万)', key: 'priceWan', width: 12 },
       { header: '车源地', key: 'city', width: 12 },
       { header: '行驶里程(km)', key: 'mileageKm', width: 14 },

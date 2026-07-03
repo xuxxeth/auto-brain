@@ -38,17 +38,13 @@ export class PipelineService {
     yearStd: number;
     configStd: string;
   } {
-    const normalized = model.replace(/\s+/g, ' ').trim();
-    const yearMatch = normalized.match(/(20\d{2})|([0-2]?\d)款/);
-    const yearStd = yearMatch
-      ? Number(yearMatch[1] ?? `20${String(yearMatch[2]).padStart(2, '0')}`)
-      : new Date().getFullYear();
-
-    const brandStd = normalized.includes('小鹏') ? '小鹏' : '未知品牌';
-    const modelStd = normalized.includes('M03') ? 'M03' : normalized;
-    const configStd = normalized.includes('Max') ? 'Max' : normalized.includes('Pro') ? 'Pro' : '标准';
-
-    return { brandStd, modelStd, yearStd, configStd };
+    const normalized = model.replace(/\s+/g, '').trim();
+    return {
+      brandStd: normalized,
+      modelStd: normalized,
+      yearStd: new Date().getFullYear(),
+      configStd: normalized,
+    };
   }
 
   private calcAgeMonth(registerDate: string): number {

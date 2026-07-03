@@ -17,15 +17,21 @@ export class OcrService {
     let worker: Awaited<ReturnType<typeof createWorker>> | null = null;
     let enhancedPath: string | null = null;
     try {
+      if (!this.isImageReadable(imagePath)) {
+        this.logger.warn(`OCR skipped, image unreadable: ${imagePath}`);
+        return { text: '', confidence: 0 };
+      }
+
       worker = await createWorker('chi_sim', 1, {
         langPath: `file://${process.cwd()}`,
       });
 
       enhancedPath = await this.createEnhancedImage(imagePath);
-      const [rawResult, enhancedResult] = await Promise.all([
-        worker.recognize(imagePath),
-        worker.recognize(enhancedPath),
-      ]);
+      const rawBuffer = fs.readFileSync(imagePath);
+      const enhancedBuffer = fs.readFileSync(enhancedPath);
+
+      const rawResult = await worker.recognize(rawBuffer);
+      const enhancedResult = await worker.recognize(enhancedBuffer);
       const raw = {
         text: rawResult.data.text ?? '',
         confidence: rawResult.data.confidence ?? 0,
@@ -50,6 +56,16 @@ export class OcrService {
       if (worker) {
         await worker.terminate().catch(() => undefined);
       }
+    }
+  }
+
+  private isImageReadable(imagePath: string): boolean {
+    try {
+      if (!fs.existsSync(imagePath)) return false;
+      const stat = fs.statSync(imagePath);
+      return stat.isFile() && stat.size > 0;
+    } catch {
+      return false;
     }
   }
 
