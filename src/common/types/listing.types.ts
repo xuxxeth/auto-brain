@@ -3,7 +3,7 @@ export interface RawListing {
   model: string;
   modelRaw?: string;
   priceWan: number;
-  city: string;
+  sourceLocation: string;
   mileageKm: number;
   registerDate: string; // yyyy-mm
   hasMajorAccident: boolean;
@@ -20,7 +20,7 @@ export interface CleanListing {
   yearStd: number;
   configStd: string;
   priceWan: number;
-  cityStd: string;
+  sourceLocationStd: string;
   mileageKm: number;
   registerDate: string;
   ageMonth: number;
@@ -45,7 +45,7 @@ export interface ScoredListing extends CleanListing {
 }
 
 export interface DailySummaryRow {
-  city: string;
+  sourceLocation: string;
   model: string;
   avgPriceWan: number;
   minPriceWan: number;

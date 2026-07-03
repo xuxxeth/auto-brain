@@ -12,7 +12,7 @@ export class XianyuAdapter implements CrawlerAdapter {
         platform: this.platform,
         model: '小鹏 M03 620 Pro',
         priceWan: 10.5,
-        city: '海口',
+        sourceLocation: '海口',
         mileageKm: 15000,
         registerDate: '2024-07',
         hasMajorAccident: false,

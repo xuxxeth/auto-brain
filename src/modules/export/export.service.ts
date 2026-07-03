@@ -37,7 +37,7 @@ export class ExportService {
       { header: '车型(去空格)', key: 'model', width: 24 },
       { header: '车型(原始)', key: 'modelRaw', width: 24 },
       { header: '价格(万)', key: 'priceWan', width: 12 },
-      { header: '车源地', key: 'city', width: 12 },
+      { header: '车源地', key: 'sourceLocation', width: 12 },
       { header: '行驶里程(km)', key: 'mileageKm', width: 14 },
       { header: '首次上牌时间', key: 'registerDate', width: 14 },
       { header: '重大事故', key: 'hasMajorAccident', width: 12 },
@@ -55,7 +55,7 @@ export class ExportService {
       { header: '年款', key: 'yearStd', width: 10 },
       { header: '配置', key: 'configStd', width: 10 },
       { header: '价格(万)', key: 'priceWan', width: 12 },
-      { header: '城市', key: 'cityStd', width: 12 },
+      { header: '车源地', key: 'sourceLocationStd', width: 12 },
       { header: '里程(km)', key: 'mileageKm', width: 12 },
       { header: '上牌时间', key: 'registerDate', width: 12 },
       { header: '车龄(月)', key: 'ageMonth', width: 10 },
@@ -90,7 +90,7 @@ export class ExportService {
       { header: '平台', key: 'platform', width: 12 },
       { header: '标准车型', key: 'modelStd', width: 12 },
       { header: '价格(万)', key: 'priceWan', width: 12 },
-      { header: '城市', key: 'cityStd', width: 12 },
+      { header: '车源地', key: 'sourceLocationStd', width: 12 },
       { header: '里程(km)', key: 'mileageKm', width: 12 },
       { header: '上牌时间', key: 'registerDate', width: 12 },
       { header: 'OCR置信度', key: 'ocrConfidence', width: 12 },
@@ -101,7 +101,7 @@ export class ExportService {
 
     const summarySheet = workbook.addWorksheet('daily_summary');
     summarySheet.columns = [
-      { header: '城市', key: 'city', width: 12 },
+      { header: '车源地', key: 'sourceLocation', width: 12 },
       { header: '车型', key: 'model', width: 12 },
       { header: '均价(万)', key: 'avgPriceWan', width: 12 },
       { header: '最低价(万)', key: 'minPriceWan', width: 12 },

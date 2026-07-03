@@ -51,7 +51,7 @@ export class ScoringService {
     const groups = new Map<string, ScoredListing[]>();
 
     for (const item of listings) {
-      const key = `${item.cityStd}__${item.modelStd}`;
+      const key = `${item.sourceLocationStd}__${item.modelStd}`;
       const bucket = groups.get(key) ?? [];
       bucket.push(item);
       groups.set(key, bucket);
@@ -60,7 +60,7 @@ export class ScoringService {
     return [...groups.values()].map((items) => {
       const prices = items.map((item) => item.priceWan);
       return {
-        city: items[0].cityStd,
+        sourceLocation: items[0].sourceLocationStd,
         model: items[0].modelStd,
         avgPriceWan: this.round(this.avg(prices)),
         minPriceWan: this.round(Math.min(...prices)),

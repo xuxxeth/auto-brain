@@ -7,7 +7,7 @@ import { CrawlerAdapter } from './crawler-adapter';
 import { OcrService } from '../ocr/ocr.service';
 const sharpLib = require('sharp');
 
-type FieldKey = 'model' | 'price' | 'city' | 'mileage' | 'registerDate';
+type FieldKey = 'price';
 
 interface CropRect {
   x: number;
@@ -23,7 +23,11 @@ interface BaseCropConfig extends CropRect {}
 export class DongchediAdapter implements CrawlerAdapter {
   readonly platform = '懂车帝';
   private readonly logger = new Logger(DongchediAdapter.name);
-  private readonly searchUrl = 'https://www.dongchedi.com/usedcar/24165595';
+  private readonly searchUrls = this.getSearchUrls();
+  private readonly modelSelector = this.getModelSelector();
+  private readonly sourceLocationSelector = this.getSourceLocationSelector();
+  private readonly registerDateSelector = this.getRegisterDateSelector();
+  private readonly mileageDescSelector = this.getMileageDescSelector();
   private readonly statePath = path.join(process.cwd(), 'state', 'dongchedi.json');
   private readonly knownCities = ['苏州', '上海', '杭州', '南京', '北京', '广州', '深圳', '海口'];
   private readonly baseCrop = this.getBaseCropConfig();
@@ -50,34 +54,48 @@ export class DongchediAdapter implements CrawlerAdapter {
 
       const context = await browser.newContext(contextOptions);
       const page = await context.newPage();
+      const listings: RawListing[] = [];
 
-      await page.goto(this.searchUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await page.waitForTimeout(2500);
+      for (const url of this.searchUrls) {
+        this.logger.log(`Dongchedi crawling url: ${url}`);
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForTimeout(2500);
 
-      if (await this.requiresManualVerification(page)) {
-        this.logger.warn('Dongchedi login/captcha detected, skip this platform in current run.');
-        return [];
+        if (await this.requiresManualVerification(page)) {
+          this.logger.warn('Dongchedi login/captcha detected, skip this platform in current run.');
+          break;
+        }
+
+        const screenshotTag = this.getUrlTag(url);
+        const modelDomText = await this.extractModelTextFromPage(page);
+        const sourceLocationDomText = await this.extractSourceLocationTextFromPage(page);
+        const registerDateDomText = await this.extractRegisterDateTextFromPage(page);
+        const mileageDescDomText = await this.extractMileageDescTextFromPage(page);
+        const fullPath = await this.captureBaseScreenshot(page, screenshotTag);
+        const fieldPaths = await this.captureFieldScreenshotsFromBase(fullPath, screenshotTag);
+
+        const priceOcr = await this.ocrService.recognizeImage(fieldPaths.price);
+
+        const listing = this.buildListingFromFieldTexts(
+          modelDomText,
+          sourceLocationDomText,
+          registerDateDomText,
+          mileageDescDomText,
+          {
+            price: priceOcr.text,
+          },
+          [priceOcr.confidence],
+          url,
+        );
+        if (listing) {
+          listings.push(listing);
+          this.logger.log(`Dongchedi parsed 1 row from ${url}`);
+        } else {
+          this.logger.warn(`Dongchedi parsed 0 row from ${url}`);
+        }
       }
-
-      const fullPath = await this.captureBaseScreenshot(page);
-      const fieldPaths = await this.captureFieldScreenshotsFromBase(fullPath);
-
-      const fullOcr = await this.ocrService.recognizeImage(fullPath);
-      const modelOcr = await this.ocrService.recognizeImage(fieldPaths.model);
-      const priceOcr = await this.ocrService.recognizeImage(fieldPaths.price);
-      const cityOcr = await this.ocrService.recognizeImage(fieldPaths.city);
-      const mileageOcr = await this.ocrService.recognizeImage(fieldPaths.mileage);
-      const registerOcr = await this.ocrService.recognizeImage(fieldPaths.registerDate);
-
-      const listing = this.buildListingFromFieldTexts({
-        model: modelOcr.text,
-        price: priceOcr.text,
-        city: cityOcr.text,
-        mileage: mileageOcr.text,
-        registerDate: registerOcr.text,
-      }, fullOcr.text, [modelOcr.confidence, priceOcr.confidence, cityOcr.confidence, mileageOcr.confidence, registerOcr.confidence]);
-
-      return listing ? [listing] : [];
+      
+      return listings;
     } catch (error) {
       this.logger.warn(`Dongchedi crawl failed and will be skipped: ${String(error)}`);
       return [];
@@ -108,11 +126,10 @@ export class DongchediAdapter implements CrawlerAdapter {
     return loginButtonVisible;
   }
 
-  private async captureBaseScreenshot(page: Page): Promise<string> {
+  private async captureBaseScreenshot(page: Page, tag: string): Promise<string> {
     const outputDir = path.join(process.cwd(), 'ocr');
     fs.mkdirSync(outputDir, { recursive: true });
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const outputPath = path.join(outputDir, `dongchedi_base.png`);
+    const outputPath = path.join(outputDir, `dongchedi_base_${tag}.png`);
 
     await page.screenshot({
       path: outputPath,
@@ -132,16 +149,16 @@ export class DongchediAdapter implements CrawlerAdapter {
     return outputPath;
   }
 
-  private async captureFieldScreenshotsFromBase(baseImagePath: string): Promise<Record<FieldKey, string>> {
+  private async captureFieldScreenshotsFromBase(baseImagePath: string, tag: string): Promise<Record<FieldKey, string>> {
     const outputDir = path.join(process.cwd(), 'ocr');
     fs.mkdirSync(outputDir, { recursive: true });
 
     const result = {} as Record<FieldKey, string>;
-    const fields: FieldKey[] = ['model', 'price', 'city', 'mileage', 'registerDate'];
+    const fields: FieldKey[] = ['price'];
 
     for (const field of fields) {
       const rect = this.cropConfig[field];
-      const outPath = path.join(outputDir, `dongchedi_${field}.png`);
+      const outPath = path.join(outputDir, `dongchedi_${field}_${tag}.png`);
       await sharpLib(baseImagePath)
         .extract({
           left: Math.max(0, Math.floor(rect.x)),
@@ -154,39 +171,56 @@ export class DongchediAdapter implements CrawlerAdapter {
       result[field] = outPath;
     }
 
-    this.logger.log(`Saved 5 field screenshots from base image at ${outputDir}`);
+    this.logger.log(`Saved 1 field screenshot from base image at ${outputDir}`);
     return result;
   }
 
   private buildListingFromFieldTexts(
+    modelText: string,
+    sourceLocationText: string,
+    registerDateText: string,
+    mileageDescText: string,
     fieldText: Record<FieldKey, string>,
-    fullText: string,
     confidences: number[],
+    sourceUrl: string,
   ): RawListing | null {
-    const modelRaw = this.extractModelRaw(fieldText.model);
+    const modelRaw = this.extractModelRaw(modelText);
     const model = this.extractModel(modelRaw);
-    const priceWan = this.extractPriceWan(fieldText.price || fullText);
-    const city = this.extractCity(fieldText.city || fullText);
-    const mileageKm = this.extractMileageKm(fieldText.mileage || fullText);
-    const registerDate = this.extractRegisterDate(fieldText.registerDate || fullText);
-    const hasMajorAccident = /重大事故|事故车|火烧|泡水/.test(fullText);
+    const priceWan = this.extractPriceWan(fieldText.price);
+    const sourceLocation = this.extractSourceLocation(sourceLocationText, '');
+    const mileageKm = this.extractMileageKm(mileageDescText);
+    const registerDate = this.extractRegisterDate(registerDateText);
+    const hasMajorAccident = false;
 
-    if (priceWan <= 0 || !model) return null;
+    if (!model) {
+      this.logger.warn(
+        `Drop row: model="${model}" priceWan=${priceWan} sourceLocation="${sourceLocation}" mileageKm=${mileageKm} registerDate="${registerDate}"`,
+      );
+      return null;
+    }
+
+    if (priceWan <= 0) {
+      this.logger.warn(`Price OCR missing, fallback priceWan=0 for url=${sourceUrl}`);
+    }
 
     const confidence = confidences.length > 0 ? Math.round(confidences.reduce((a, b) => a + b, 0) / confidences.length) : 0;
-    const needsReview = confidence < 85 || mileageKm <= 0 || !registerDate;
+    const needsReview = confidence < 85 || priceWan <= 0 || mileageKm <= 0 || !registerDate;
 
     return {
       platform: this.platform,
       model,
       modelRaw,
       priceWan,
-      city,
+      sourceLocation,
       mileageKm,
       registerDate,
       hasMajorAccident,
-      url: this.searchUrl,
-      rawText: JSON.stringify(fieldText),
+      url: sourceUrl,
+      rawText: JSON.stringify({
+        ...fieldText,
+        sourceLocation: sourceLocationText,
+        registerDate: registerDateText,
+      }),
       ocrConfidence: confidence,
       needsReview,
     };
@@ -206,10 +240,14 @@ export class DongchediAdapter implements CrawlerAdapter {
     return m ? Number(m[1]) : 0;
   }
 
-  private extractCity(input: string): string {
+  private extractSourceLocation(input: string, fallbackText: string): string {
     const compact = this.normalizeText(input);
     const city = this.knownCities.find((item) => compact.includes(item));
-    return city ?? '苏州';
+    if (city) return city;
+
+    const fallbackCompact = this.normalizeText(fallbackText);
+    const fallbackCity = this.knownCities.find((item) => fallbackCompact.includes(item));
+    return fallbackCity ?? '苏州';
   }
 
   private extractMileageKm(input: string): number {
@@ -274,48 +312,104 @@ export class DongchediAdapter implements CrawlerAdapter {
   }
 
   private getBaseCropConfig(): BaseCropConfig {
-    const defaultConfig: BaseCropConfig = { x: 870, y: 140, width: 770, height: 360 };
-    const raw = process.env.DONGCHEDI_BASE_CROP_CONFIG;
-    if (!raw) return defaultConfig;
-
-    try {
-      const parsed = JSON.parse(raw) as Partial<BaseCropConfig>;
-      return {
-        x: parsed.x ?? defaultConfig.x,
-        y: parsed.y ?? defaultConfig.y,
-        width: parsed.width ?? defaultConfig.width,
-        height: parsed.height ?? defaultConfig.height,
-      };
-    } catch {
-      this.logger.warn('Invalid DONGCHEDI_BASE_CROP_CONFIG JSON, fallback to default base crop.');
-      return defaultConfig;
-    }
+    return { x: 870, y: 140, width: 770, height: 360 };
   }
 
   private getCropConfig(): FieldCropConfig {
-    const defaultConfig: FieldCropConfig = {
-      model: { x: 0, y: 0, width: 1400, height: 130 },
-      price: { x: 10, y: 220, width: 330, height: 110 },
-      city: { x: 1900, y: 660, width: 150, height: 70 },
-      mileage: { x: 700, y: 660, width: 340, height: 80 },
-      registerDate: { x: 150, y: 730, width: 360, height: 60 },
+    return {
+      price: { x: 10, y: 120, width: 330, height: 210 },
     };
+  }
 
-    const raw = process.env.DONGCHEDI_FIELD_CROP_CONFIG;
-    if (!raw) return defaultConfig;
+  private getSearchUrls(): string[] {
+    return [
+      'https://www.dongchedi.com/usedcar/24165595',
+      'https://www.dongchedi.com/usedcar/24295170',
+    ];
+  }
 
-    try {
-      const parsed = JSON.parse(raw) as Partial<FieldCropConfig>;
-      return {
-        model: { ...defaultConfig.model, ...(parsed.model ?? {}) },
-        price: { ...defaultConfig.price, ...(parsed.price ?? {}) },
-        city: { ...defaultConfig.city, ...(parsed.city ?? {}) },
-        mileage: { ...defaultConfig.mileage, ...(parsed.mileage ?? {}) },
-        registerDate: { ...defaultConfig.registerDate, ...(parsed.registerDate ?? {}) },
-      };
-    } catch {
-      this.logger.warn('Invalid DONGCHEDI_FIELD_CROP_CONFIG JSON, fallback to default crop config.');
-      return defaultConfig;
+  private getUrlTag(url: string): string {
+    const id = url.match(/\/usedcar\/(\d+)/)?.[1];
+    return id ?? 'unknown';
+  }
+
+  private getModelSelector(): string {
+    return '#__next > div > div.new-main.tw-overflow-hidden.new > div > div.jsx-1166026127.tw-grid.tw-grid-cols-40.tw-bg-white.tw-px-16.tw-py-12 > div.jsx-1166026127.tw-col-span-23.md\\:tw-col-span-26.tw-pl-16.tw-flex.tw-flex-col > div:nth-child(1) > h1 > span';
+  }
+
+  private getSourceLocationSelector(): string {
+    return '#\\31  > div.tw-mt-12.tw-bg-white.tw-px-16.tw-py-12.tw-rounded-2 > div.car-archives_params-wrap__1o2oB > div > div:nth-child(2) > p.car-archives_value__3YXEW';
+  }
+
+  private getRegisterDateSelector(): string {
+    return '#\\31  > div.tw-mt-12.tw-bg-white.tw-px-16.tw-py-12.tw-rounded-2 > div.car-archives_params-wrap__1o2oB > div > div:nth-child(4) > p.car-archives_value__3YXEW';
+  }
+
+  private getMileageDescSelector(): string {
+    return '#\\31  > div.tw-mt-12.tw-bg-white.tw-px-16.tw-py-12.tw-rounded-2 > div.car-archives_desc__2uEmn > p';
+  }
+
+  private async extractModelTextFromPage(page: Page): Promise<string> {
+    const fromSelector = await page
+      .locator(this.modelSelector)
+      .first()
+      .textContent()
+      .catch(() => '');
+
+    const normalized = this.normalizeLine(fromSelector || '');
+    if (normalized) {
+      return normalized;
     }
+
+    this.logger.warn(`Model selector not found or empty: ${this.modelSelector}`);
+    return '';
+  }
+
+  private async extractSourceLocationTextFromPage(page: Page): Promise<string> {
+    const fromSelector = await page
+      .locator(this.sourceLocationSelector)
+      .first()
+      .textContent()
+      .catch(() => '');
+
+    const normalized = this.normalizeLine(fromSelector || '');
+    if (normalized) {
+      return normalized;
+    }
+
+    this.logger.warn(`Source location selector not found or empty: ${this.sourceLocationSelector}`);
+    return '';
+  }
+
+  private async extractRegisterDateTextFromPage(page: Page): Promise<string> {
+    const fromSelector = await page
+      .locator(this.registerDateSelector)
+      .first()
+      .textContent()
+      .catch(() => '');
+
+    const normalized = this.normalizeLine(fromSelector || '');
+    if (normalized) {
+      return normalized;
+    }
+
+    this.logger.warn(`Register date selector not found or empty: ${this.registerDateSelector}`);
+    return '';
+  }
+
+  private async extractMileageDescTextFromPage(page: Page): Promise<string> {
+    const fromSelector = await page
+      .locator(this.mileageDescSelector)
+      .first()
+      .textContent()
+      .catch(() => '');
+
+    const normalized = (fromSelector || '').trim();
+    if (normalized) {
+      return normalized;
+    }
+
+    this.logger.warn(`Mileage desc selector not found or empty: ${this.mileageDescSelector}`);
+    return '';
   }
 }

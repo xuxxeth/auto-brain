@@ -18,7 +18,7 @@ export class PipelineService {
           yearStd: parsed.yearStd,
           configStd: parsed.configStd,
           priceWan: item.priceWan,
-          cityStd: item.city.trim(),
+          sourceLocationStd: item.sourceLocation.trim(),
           mileageKm: item.mileageKm,
           registerDate: item.registerDate,
           ageMonth,

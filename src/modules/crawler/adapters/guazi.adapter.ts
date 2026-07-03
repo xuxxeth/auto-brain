@@ -12,7 +12,7 @@ export class GuaziAdapter implements CrawlerAdapter {
         platform: this.platform,
         model: '小鹏 M03 620 Max',
         priceWan: 10.2,
-        city: '海口',
+        sourceLocation: '海口',
         mileageKm: 12000,
         registerDate: '2024-08',
         hasMajorAccident: false,
