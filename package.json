@@ -8,6 +8,7 @@
     "start:dev": "nest start --watch",
     "build": "nest build",
     "login:dongchedi": "ts-node src/scripts/dongchedi-login.bootstrap.ts",
+    "login:guazi": "ts-node src/scripts/guazi-login.bootstrap.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "test": "vitest run"
   },

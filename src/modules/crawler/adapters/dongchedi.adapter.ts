@@ -61,6 +61,11 @@ export class DongchediAdapter implements CrawlerAdapter {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.waitForTimeout(2500);
 
+        if (await this.isListingUnavailable(page)) {
+          this.logger.warn(`Dongchedi listing unavailable (已售出或下架), skip url: ${url}`);
+          continue;
+        }
+
         if (await this.requiresManualVerification(page)) {
           this.logger.warn('Dongchedi login/captcha detected, skip this platform in current run.');
           break;
@@ -124,6 +129,12 @@ export class DongchediAdapter implements CrawlerAdapter {
       .isVisible()
       .catch(() => false);
     return loginButtonVisible;
+  }
+
+  private async isListingUnavailable(page: Page): Promise<boolean> {
+    const html = await page.content();
+    const text = html.replace(/\s+/g, '');
+    return text.includes('您访问的二手车已售出或下架') || text.includes('已售出或下架');
   }
 
   private async captureBaseScreenshot(page: Page, tag: string): Promise<string> {
