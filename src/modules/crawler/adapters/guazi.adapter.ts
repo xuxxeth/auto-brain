@@ -81,19 +81,20 @@ export class GuaziAdapter implements CrawlerAdapter {
     const html = await page.content();
     const lower = html.toLowerCase();
     const keywordHit = ''
-      // lower.includes('验证码') 
+      // lower.includes('安全验证') 
       // ||
       // lower.includes('captcha') ||
       // lower.includes('滑块') ||
       // lower.includes('请先登录');
     if (keywordHit) return true;
 
-    const loginButtonVisible = await page
-      .locator('text=/登录|立即登录|去登录/')
-      .first()
-      .isVisible()
-      .catch(() => false);
-    return loginButtonVisible;
+    // const loginButtonVisible = await page
+    //   .locator('text=/安全验证/')
+    //   .first()
+    //   .isVisible()
+    //   .catch(() => false);
+    // return loginButtonVisible;
+    return false
   }
 
   private toRawListing(item: {
